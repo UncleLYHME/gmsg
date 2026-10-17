@@ -262,3 +262,5 @@ ruff check src tests
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Rebuild after a wiped drive: see [RESTORE.md](RESTORE.md).
