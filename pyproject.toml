@@ -7,7 +7,7 @@ name = "gmsg"
 version = "0.1.0"
 description = "A small CLI for Google Messages for Web."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14.7,<3.15"
 license = { text = "MIT" }
 authors = [{ name = "Uncle LYHME" }]
 keywords = ["google-messages", "sms", "cli", "automation", "messages-for-web"]
@@ -18,9 +18,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: MacOS",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Communications",
 ]
 dependencies = []
@@ -38,7 +36,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

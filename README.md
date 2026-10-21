@@ -15,7 +15,7 @@ This project is early and sharp-edged. It automates a browser session, so treat 
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.14.7
 - Google Chrome, if using the `chrome`, `automation`, or `cdp` backends
 - macOS, for the default `lite` backend and the `chrome` AppleScript backend
 - A phone paired with Google Messages for Web: <https://messages.google.com/web>

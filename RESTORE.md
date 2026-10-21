@@ -2,7 +2,7 @@
 
 - What: Python CLI for Google Messages for Web (status, chats, history, send, route aliases). Public repo `UncleLYHME/gmsg`. Used by the Mini's family/dinner/goodnight pipeline scripts (homelab `services/ollie/scripts/pipeline/*.sh`, `tools/lib/automation-delivery.sh`).
 - Where it runs: the Mini only (Mac-bound: Chrome, Accessibility/AppleScript, the paired phone session). Installed command: `~/.local/bin/gmsg`. Not a service; no URL.
-- Depends on: Python 3.10+, Google Chrome, a phone paired at https://messages.google.com/web; Playwright for the `automation`/`cdp` backends.
+- Depends on: Python 3.14.7, Google Chrome, a phone paired at https://messages.google.com/web; Playwright for the `automation`/`cdp` backends.
 - Backups:
   - Code: GitHub only (`UncleLYHME/gmsg`). Nightly git mirror on BufferDaddy (`/volume1/backups/git-mirrors/gmsg.git`, 2:30 AM, verified present) and the Harbor checkout in Harbor's nightly `/volume1/backups/<date>/harbor/projects.tar.gz`. The Mini keeps no copy of the repo.
   - Config/env: none in git. Env names: `GMSG_AUTH_MODE` (the pipelines use `chrome`), `GMSG_ROUTES_PATH`, `GMSG_USER_DATA_DIR`, `GMSG_CDP_PORT`, `GMSG_LITE_APP_NAME`, `GMSG_LITE_PROCESS_NAME`, `GMSG_SEND_TIMEOUT_SECONDS`, `GMSG_SEND_RETRIES`.
