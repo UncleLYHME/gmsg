@@ -4,7 +4,7 @@
 - Where it runs: the Mini only (Mac-bound: Chrome, Accessibility/AppleScript, the paired phone session). Installed command: `~/.local/bin/gmsg`. Not a service; no URL.
 - Depends on: Python 3.10+, Google Chrome, a phone paired at https://messages.google.com/web; Playwright for the `automation`/`cdp` backends.
 - Backups:
-  - Code: GitHub only (`UncleLYHME/gmsg`). Git mirror on BufferDaddy `/volume1/backups/git-mirrors` starts 2026-10-16 (tonight). The Mini's nightly `/volume1/backups/<date>/mini/projects.tar.gz` covers only `~/Projects`, which does not include this GitHub-only clone.
+  - Code: GitHub only (`UncleLYHME/gmsg`). Nightly git mirror on BufferDaddy (`/volume1/backups/git-mirrors/gmsg.git`, 2:30 AM, verified present) and the Harbor checkout in Harbor's nightly `/volume1/backups/<date>/harbor/projects.tar.gz`. The Mini keeps no copy of the repo.
   - Config/env: none in git. Env names: `GMSG_AUTH_MODE` (the pipelines use `chrome`), `GMSG_ROUTES_PATH`, `GMSG_USER_DATA_DIR`, `GMSG_CDP_PORT`, `GMSG_LITE_APP_NAME`, `GMSG_LITE_PROCESS_NAME`, `GMSG_SEND_TIMEOUT_SECONDS`, `GMSG_SEND_RETRIES`.
   - **Not backed up anywhere:** `~/.config/gmsg/` (`routes.json` aliases, `playwright-auth.json`, `chrome-profile/`) and the live `~/.local/bin/gmsg` plus `~/.local/share/gmsg-pw/.venv`. The installed `~/.local/bin/gmsg` is a 56 KB standalone headless-Playwright script dated Jul 5, 2026 that is not the repo's `src/gmsg` package and is not in any repo. Auth is re-pairable; the aliases and that script are not recoverable from git.
 
