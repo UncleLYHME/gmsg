@@ -18,6 +18,7 @@ from ..config import (
     REAL_CHROME_USER_DATA_DIR,
 )
 from ..utils import norm
+from .common import aria_direction, aria_timestamp, print_chats, print_history, print_json
 
 try:
     from playwright.sync_api import TimeoutError as PWTimeout
@@ -213,7 +214,7 @@ def get_history(page, recipient: str, limit: int = 20) -> dict:
     for item in items:
         aria = item.get("aria", "")
         text = item.get("text", "")
-        direction = "received" if "said:" in aria and "You said:" not in aria and "You sent:" not in aria else "sent"
+        direction = aria_direction(aria)
         # Extract message text from aria or innerText
         body = text
         if "said:" in aria:
@@ -222,14 +223,10 @@ def get_history(page, recipient: str, limit: int = 20) -> dict:
         if "You said:" in aria or "You sent:" in aria:
             body = re.sub(r"^.*?said:\s*|^.*?sent:\s*", "", aria).split(".")[0]
             body = re.sub(r"\. Sent on.*$|\. Read\..*$|\. Delivered.*$", "", body)
-        timestamp = ""
-        ts_match = re.search(r"(?:Sent|Received|Read|Delivered)\s+on\s+(.*?)(?:\.|$)", aria)
-        if ts_match:
-            timestamp = ts_match.group(1).strip()
         messages.append({
             "direction": direction,
             "body": body,
-            "timestamp": timestamp,
+            "timestamp": aria_timestamp(aria),
             "raw_aria": aria[:120],
         })
 
@@ -298,32 +295,14 @@ def cmd_status(page, args) -> int:
 def cmd_chats(page, args) -> int:
     chats = list_chats(page, args.limit)
     if args.json:
-        print(json.dumps({"ok": True, "chats": chats}, ensure_ascii=False))
+        print_json({"ok": True, "chats": chats})
     else:
-        for c in chats:
-            preview = c.get("preview", "")
-            if len(preview) > 120:
-                preview = preview[:117] + "..."
-            extra = f" — {preview}" if preview else ""
-            print(f"{c['index']}. {c['title']}{extra}")
+        print_chats(chats)
     return 0
 
 
 def cmd_history(page, args) -> int:
-    result = get_history(page, args.to, limit=args.limit)
-    if args.json:
-        print(json.dumps(result, ensure_ascii=False))
-    elif result.get("ok"):
-        print(f"Conversation: {args.to}\n")
-        for msg in reversed(result.get("messages", [])):
-            prefix = "→" if msg["direction"] == "received" else "←"
-            ts = f" ({msg['timestamp']})" if msg["timestamp"] else ""
-            body = msg["body"][:200]
-            print(f"  {prefix} {body}{ts}")
-    else:
-        print(f"gmsg: {result.get('error', 'unknown error')}", file=sys.stderr)
-        return 1
-    return 0
+    return print_history(get_history(page, args.to, limit=args.limit), args)
 
 
 def cmd_send(page, args) -> int:

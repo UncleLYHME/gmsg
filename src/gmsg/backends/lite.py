@@ -1,16 +1,15 @@
 """macOS Google Messages Lite accessibility backend."""
 from __future__ import annotations
 
-import json
 import re
 import subprocess
-import sys
 import time as _time
 from pathlib import Path
 
 from ..config import LITE_APP_NAME, LITE_PROCESS_NAME
 from ..routes import resolve_route
 from ..utils import norm
+from .common import aria_timestamp, run_app_backend, sent_message_seen
 
 def lite_osascript(script: str, timeout: int = 30) -> str:
     return subprocess.check_output(["osascript"], input=script, text=True, timeout=timeout).strip()
@@ -235,8 +234,7 @@ def lite_parse_history(raw: str, limit: int = 20) -> list[dict]:
         elif " sent:" in aria:
             body = re.sub(r"^.*?sent:\s*", "", body)
         body = re.sub(r"\. Received on.*$|\. Sent on.*$|\. Read\..*$|\. Delivered\..*$|\. Pending.*$", "", body).strip()
-        ts_match = re.search(r"(?:Sent|Received|Read|Delivered)\s+on\s+(.*?)(?:\.|$)", aria)
-        messages.append({"direction": direction, "body": body, "timestamp": ts_match.group(1).strip() if ts_match else "", "raw_aria": aria[:160]})
+        messages.append({"direction": direction, "body": body, "timestamp": aria_timestamp(aria), "raw_aria": aria[:160]})
     return messages[-int(limit):]
 
 
@@ -433,74 +431,28 @@ def lite_send(recipient: str, message: str, draft: bool = False) -> dict:
     if draft:
         return {"ok": True, "sent": False, "detail": "Message drafted in Google Messages Lite.", "conversation": clicked.get("title"), "preview": message[:80], "drafted": drafted_value[:80]}
     lite_press_send()
-    wanted = re.sub(r"\s+", " ", message.strip())
+    def squash(value: str) -> str:
+        return re.sub(r"\s+", " ", value.strip())
+
+    wanted = squash(message)
     deadline = _time.time() + 20
     while _time.time() < deadline:
         hist = lite_history(recipient, limit=12)
-        if hist.get("ok"):
-            for msg in reversed(hist.get("messages", [])):
-                if msg.get("direction") != "sent":
-                    continue
-                body = re.sub(r"\s+", " ", (msg.get("body") or "").strip())
-                if body == wanted or wanted in body or body in wanted:
-                    return {"ok": True, "sent": True, "detail": "Message sent via Google Messages Lite.", "conversation": clicked.get("title"), "preview": message[:80]}
+        if hist.get("ok") and sent_message_seen(hist.get("messages", []), wanted, squash):
+            return {"ok": True, "sent": True, "detail": "Message sent via Google Messages Lite.", "conversation": clicked.get("title"), "preview": message[:80]}
         _time.sleep(1)
     return {"ok": False, "sent": False, "error": "Message was composed/sent-clicked but not verified in Lite history", "conversation": clicked.get("title")}
 
 
 def lite_main(args) -> int:
-    try:
-        if args.command == "pair":
-            open_lite_messages()
-            print("Google Messages Lite opened. Pair/sign in there, then rerun `gmsg status`.")
-            return 0
-        if args.command == "status":
-            data = lite_status_data()
-            if args.json:
-                print(json.dumps(data, ensure_ascii=False))
-            elif data.get("paired"):
-                print("Google Messages Lite automation is ready.")
-            else:
-                print(data.get("detail", "Not ready."))
-            return 0 if data.get("ok") else 1
-        if args.command == "chats":
-            chats = lite_list_chats(args.limit)
-            if args.json:
-                print(json.dumps({"ok": True, "chats": chats, "auth_mode": "lite", "limited": True}, ensure_ascii=False))
-            else:
-                for c in chats:
-                    extra = f" — {c.get('preview', '')}" if c.get("preview") else ""
-                    print(f"{c['index']}. {c['title']}{extra}")
-            return 0
-        if args.command == "history":
-            result = lite_history(args.to, args.limit)
-            if args.json:
-                print(json.dumps(result, ensure_ascii=False))
-            elif result.get("ok"):
-                print(f"Conversation: {result.get('conversation') or args.to}\n")
-                for msg in reversed(result.get("messages", [])):
-                    prefix = "→" if msg["direction"] == "received" else "←"
-                    ts = f" ({msg['timestamp']})" if msg["timestamp"] else ""
-                    print(f"  {prefix} {msg['body'][:200]}{ts}")
-            else:
-                print(f"gmsg: {result.get('error', 'unknown error')}", file=sys.stderr)
-                return 1
-            return 0
-        if args.command == "send":
-            result = lite_send(args.to, args.text, draft=args.draft)
-            if args.json:
-                print(json.dumps(result, ensure_ascii=False))
-            elif result.get("ok"):
-                verb = "prepared" if args.draft else "sent"
-                print(f"Message {verb}: {result.get('preview', '')}".rstrip())
-            else:
-                print(f"gmsg: {result.get('error', 'unknown error')}", file=sys.stderr)
-                return 1
-            return 0 if result.get("ok") else 1
-        return 2
-    except Exception as exc:
-        if getattr(args, "json", False):
-            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
-        else:
-            print(f"gmsg: {exc}", file=sys.stderr)
-        return 1
+    return run_app_backend(
+        args,
+        open_app=open_lite_messages,
+        pair_text="Google Messages Lite opened. Pair/sign in there, then rerun `gmsg status`.",
+        status=lite_status_data,
+        ready_text="Google Messages Lite automation is ready.",
+        list_chats=lite_list_chats,
+        history=lite_history,
+        send=lite_send,
+        chats_extra={"auth_mode": "lite", "limited": True},
+    )

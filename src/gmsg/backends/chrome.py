@@ -5,11 +5,11 @@ import base64
 import json
 import re
 import subprocess
-import sys
 import time as _time
 
 from ..config import MESSAGES_URL, PROFILE_DIRECTORY
 from ..utils import js_string
+from .common import aria_direction, aria_timestamp, run_app_backend, sent_message_seen
 
 def run_osascript(script: str, timeout: int = 30) -> str:
     return subprocess.check_output(["osascript", "-e", script], text=True, timeout=timeout).strip()
@@ -176,7 +176,7 @@ def chrome_history(recipient: str, limit: int = 20) -> dict:
     for item in items:
         aria = item.get("aria", "")
         text = item.get("text", "")
-        direction = "received" if "said:" in aria and "You said:" not in aria and "You sent:" not in aria else "sent"
+        direction = aria_direction(aria)
         body = text
         if "said:" in aria:
             body = re.sub(r"^.*?said:\s*", "", aria)
@@ -184,8 +184,7 @@ def chrome_history(recipient: str, limit: int = 20) -> dict:
         if "You said:" in aria or "You sent:" in aria:
             body = re.sub(r"^.*?said:\s*|^.*?sent:\s*", "", aria)
             body = re.sub(r"\. Sent on.*$|\. Read\..*$|\. Delivered\..*$|\. Pending.*$", "", body)
-        ts_match = re.search(r"(?:Sent|Received|Read|Delivered)\s+on\s+(.*?)(?:\.|$)", aria)
-        messages.append({"direction": direction, "body": body, "timestamp": ts_match.group(1).strip() if ts_match else "", "raw_aria": aria[:160]})
+        messages.append({"direction": direction, "body": body, "timestamp": aria_timestamp(aria), "raw_aria": aria[:160]})
     return {"ok": True, "conversation": clicked.get("title"), "messages": messages, "count": len(messages)}
 
 
@@ -221,13 +220,8 @@ def chrome_send(recipient: str, message: str, draft: bool = False) -> dict:
         deadline = _time.time() + 20
         while _time.time() < deadline:
             verify = chrome_history(recipient, limit=12)
-            if verify.get("ok"):
-                for msg in reversed(verify.get("messages", [])):
-                    if msg.get("direction") != "sent":
-                        continue
-                    body = normalize_message_text(msg.get("body", ""))
-                    if body == wanted or wanted in body or body in wanted:
-                        return True
+            if verify.get("ok") and sent_message_seen(verify.get("messages", []), wanted, normalize_message_text):
+                return True
             _time.sleep(1)
         return False
 
@@ -258,61 +252,13 @@ def chrome_send(recipient: str, message: str, draft: bool = False) -> dict:
 
 
 def chrome_main(args) -> int:
-    try:
-        if args.command == "pair":
-            open_chrome_messages()
-            print("Chrome opened to Google Messages. Sign in or pair there, then rerun `gmsg status`.")
-            return 0
-        if args.command == "status":
-            data = chrome_status_data()
-            if args.json:
-                print(json.dumps(data, ensure_ascii=False))
-            elif data.get("paired"):
-                print("Google Messages automation is ready.")
-            else:
-                print(data.get("detail", "Not ready."))
-            return 0 if data.get("ok") else 1
-        if args.command == "chats":
-            chats = chrome_list_chats(args.limit)
-            if args.json:
-                print(json.dumps({"ok": True, "chats": chats}, ensure_ascii=False))
-            else:
-                for c in chats:
-                    preview = c.get("preview", "")
-                    if len(preview) > 120:
-                        preview = preview[:117] + "..."
-                    extra = f" — {preview}" if preview else ""
-                    print(f"{c['index']}. {c['title']}{extra}")
-            return 0
-        if args.command == "history":
-            result = chrome_history(args.to, args.limit)
-            if args.json:
-                print(json.dumps(result, ensure_ascii=False))
-            elif result.get("ok"):
-                print(f"Conversation: {result.get('conversation') or args.to}\n")
-                for msg in reversed(result.get("messages", [])):
-                    prefix = "→" if msg["direction"] == "received" else "←"
-                    ts = f" ({msg['timestamp']})" if msg["timestamp"] else ""
-                    print(f"  {prefix} {msg['body'][:200]}{ts}")
-            else:
-                print(f"gmsg: {result.get('error', 'unknown error')}", file=sys.stderr)
-                return 1
-            return 0
-        if args.command == "send":
-            result = chrome_send(args.to, args.text, draft=args.draft)
-            if args.json:
-                print(json.dumps(result, ensure_ascii=False))
-            elif result.get("ok"):
-                verb = "prepared" if args.draft else "sent"
-                print(f"Message {verb}: {result.get('preview', '')}".rstrip())
-            else:
-                print(f"gmsg: {result.get('error', 'unknown error')}", file=sys.stderr)
-                return 1
-            return 0 if result.get("ok") else 1
-        return 2
-    except Exception as exc:
-        if getattr(args, "json", False):
-            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
-        else:
-            print(f"gmsg: {exc}", file=sys.stderr)
-        return 1
+    return run_app_backend(
+        args,
+        open_app=open_chrome_messages,
+        pair_text="Chrome opened to Google Messages. Sign in or pair there, then rerun `gmsg status`.",
+        status=chrome_status_data,
+        ready_text="Google Messages automation is ready.",
+        list_chats=chrome_list_chats,
+        history=chrome_history,
+        send=chrome_send,
+    )

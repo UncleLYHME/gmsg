@@ -240,6 +240,7 @@ src/gmsg/cli.py                 # argument parsing and backend dispatch
 src/gmsg/config.py              # environment-backed runtime settings
 src/gmsg/routes.py              # local route alias storage
 src/gmsg/utils.py               # shared normalization / JSON helpers
+src/gmsg/backends/common.py     # helpers shared by backends (aria parsing, CLI output)
 src/gmsg/backends/chrome.py     # macOS Chrome + AppleScript backend
 src/gmsg/backends/lite.py       # macOS Google Messages Lite accessibility backend
 src/gmsg/backends/playwright.py # Playwright / CDP backend
